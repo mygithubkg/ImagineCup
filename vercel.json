@@ -1,0 +1,6 @@
+{
+  "buildCommand": "cd agri-eye && npm install && npm run build",
+  "outputDirectory": "agri-eye/dist",
+  "installCommand": "cd agri-eye && npm install",
+  "framework": null
+}
