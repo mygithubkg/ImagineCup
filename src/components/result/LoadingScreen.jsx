@@ -3,8 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import React from 'react';
 
-const LoadingScreen = () => {
-  const [loadingText, setLoadingText] = useState("Observing leaf patterns...");
+const LoadingScreen = ({ status }) => {
+  const [loadingText, setLoadingText] = useState(status || "Observing leaf patterns...");
   
   const messages = [
     "Reading leaf veins...",
@@ -15,13 +15,18 @@ const LoadingScreen = () => {
   ];
 
   useEffect(() => {
+    if (status) {
+      setLoadingText(status);
+      return;
+    }
+    
     let i = 0;
     const interval = setInterval(() => {
       i = (i + 1) % messages.length;
       setLoadingText(messages[i]);
     }, 800);
     return () => clearInterval(interval);
-  }, []);
+  }, [status]);
 
   return (
     <div className="fixed inset-0 bg-[#051109] flex flex-col items-center justify-center z-[100] overflow-hidden">

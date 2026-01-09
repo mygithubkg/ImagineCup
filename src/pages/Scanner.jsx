@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sprout, Info } from 'lucide-react';
+import { uploadImageToBlob, isAzureConfigured } from '../utils/blobStorage';
 
 // Component Imports
 import CameraView from '../components/scanner/CameraView';
@@ -19,6 +20,7 @@ const Scanner = () => {
   const [flashOn, setFlashOn] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [cameraError, setCameraError] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
 
   const handleBack = () => {
     navigate(-1);
@@ -28,19 +30,50 @@ const Scanner = () => {
     setFlashOn(!flashOn);
   };
 
-  const handleCapture = () => {
+  const handleCapture = async () => {
     if (!webcamRef.current) return;
 
     setIsCapturing(true);
+    setUploadError(null);
 
     // Orchestrated Capture Sequence
-    setTimeout(() => {
+    setTimeout(async () => {
       const imageSrc = webcamRef.current.getScreenshot();
       
       if (imageSrc) {
-        localStorage.setItem('capturedImage', imageSrc);
-        // Visual "Blink" Effect before navigation
-        setTimeout(() => navigate('/result'), 400);
+        try {
+          // Store image locally first
+          localStorage.setItem('capturedImage', imageSrc);
+          
+          // Check if Azure is configured
+          if (!isAzureConfigured()) {
+            console.warn('⚠️ Azure not configured, using mock mode');
+            localStorage.setItem('mockMode', 'true');
+            setTimeout(() => navigate('/result'), 400);
+            return;
+          }
+          
+          // Get user info
+          const user = JSON.parse(localStorage.getItem('user') || '{}');
+          const userId = user?.email || user?.phone || 'guest';
+          
+          // Upload to Azure Blob Storage
+          const uploadResult = await uploadImageToBlob(imageSrc, userId);
+          
+          if (uploadResult.success) {
+            // Store filename for polling results
+            localStorage.setItem('analysisFilename', uploadResult.filename);
+            localStorage.removeItem('mockMode');
+            
+            // Visual "Blink" Effect before navigation
+            setTimeout(() => navigate('/result'), 400);
+          }
+        } catch (error) {
+          console.error('❌ Capture/Upload failed:', error);
+          setUploadError(error.message);
+          setIsCapturing(false);
+          alert('Failed to upload image: ' + error.message);
+        }
       } else {
         alert('Failed to capture image. Please try again.');
         setIsCapturing(false);
@@ -62,12 +95,43 @@ const Scanner = () => {
     }
 
     setIsCapturing(true);
+    setUploadError(null);
+    
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       const imageSrc = e.target?.result;
+      
       if (imageSrc) {
-        localStorage.setItem('capturedImage', imageSrc);
-        navigate('/result');
+        try {
+          // Store image locally
+          localStorage.setItem('capturedImage', imageSrc);
+          
+          // Check if Azure is configured
+          if (!isAzureConfigured()) {
+            console.warn('⚠️ Azure not configured, using mock mode');
+            localStorage.setItem('mockMode', 'true');
+            navigate('/result');
+            return;
+          }
+          
+          // Get user info
+          const user = JSON.parse(localStorage.getItem('user') || '{}');
+          const userId = user?.email || user?.phone || 'guest';
+          
+          // Upload to Azure Blob Storage
+          const uploadResult = await uploadImageToBlob(imageSrc, userId);
+          
+          if (uploadResult.success) {
+            localStorage.setItem('analysisFilename', uploadResult.filename);
+            localStorage.removeItem('mockMode');
+            navigate('/result');
+          }
+        } catch (error) {
+          console.error('❌ Upload failed:', error);
+          setUploadError(error.message);
+          alert('Failed to upload image: ' + error.message);
+          setIsCapturing(false);
+        }
       } else {
         alert('Failed to load image.');
         setIsCapturing(false);

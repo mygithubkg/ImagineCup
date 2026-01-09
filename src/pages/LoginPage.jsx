@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Phone, ArrowRight, ShieldCheck, User, CheckCircle2, Sprout, Leaf, Lock } from 'lucide-react';
+import { Mail, ArrowRight, ShieldCheck, User, CheckCircle2, Sprout, Leaf, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from '../components/Header';
 import React from 'react';
@@ -29,42 +29,96 @@ const CountUp = ({ end, duration = 2 }) => {
 
 const LoginPage = () => {
   const navigate = useNavigate();
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
-  const [step, setStep] = useState('phone'); // 'phone' or 'otp'
+  const [step, setStep] = useState('email'); // 'email' or 'otp'
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSendOTP = (e) => {
+  // Azure Function URL (from environment variable)
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:7071/api';
+
+  const handleSendOTP = async (e) => {
     e.preventDefault();
-    if (phoneNumber.length < 10) {
-      alert('Please enter a valid phone number');
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError('Please enter a valid email address');
       return;
     }
+    
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    setError('');
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/sendOTP`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setStep('otp');
+        // In development, show OTP in console
+        if (data.devOTP) {
+          console.log('🔐 DEV OTP:', data.devOTP);
+          alert(`DEV MODE: Your OTP is ${data.devOTP}`);
+        }
+      } else {
+        setError(data.error || 'Failed to send OTP. Please try again.');
+      }
+    } catch (err) {
+      setError('Network error. Please check your connection and try again.');
+      console.error('Send OTP Error:', err);
+    } finally {
       setIsLoading(false);
-      setStep('otp');
-    }, 1500);
+    }
   };
 
-  const handleVerifyOTP = (e) => {
+  const handleVerifyOTP = async (e) => {
     e.preventDefault();
-    if (otp.length < 4) {
-      alert('Please enter a valid OTP');
+    if (otp.length < 6) {
+      setError('Please enter a valid 6-digit OTP');
       return;
     }
+    
     setIsLoading(true);
-    // Simulate verification
-    setTimeout(() => {
-      localStorage.setItem('user', JSON.stringify({ phone: phoneNumber, type: 'farmer' }));
+    setError('');
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/verifyOTP`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Store user data and authentication token
+        localStorage.setItem('user', JSON.stringify(data.user));
+        localStorage.setItem('authToken', data.token);
+        navigate('/dashboard');
+      } else {
+        setError(data.error || 'Invalid OTP. Please try again.');
+      }
+    } catch (err) {
+      setError('Verification failed. Please try again.');
+      console.error('Verify OTP Error:', err);
+    } finally {
       setIsLoading(false);
-      navigate('/dashboard');
-    }, 1500);
+    }
   };
 
   const handleGuestMode = () => {
-    localStorage.setItem('user', JSON.stringify({ type: 'guest', name: 'Demo User' }));
+    // Set demo user with a demo token to indicate guest mode
+    localStorage.setItem('user', JSON.stringify({ 
+      type: 'guest', 
+      name: 'Demo User',
+      email: 'demo@livingharvest.app'
+    }));
+    localStorage.setItem('authToken', 'demo-mode-token');
     navigate('/dashboard');
   };
 
@@ -160,21 +214,35 @@ const LoginPage = () => {
                     <Lock size={24} />
                 </div>
                 <h1 className="text-3xl font-serif font-black text-[#143d28] mb-2">
-                  Welcome Back
+                  {step === 'email' ? 'Welcome Back' : 'Verify OTP'}
                 </h1>
                 <p className="text-gray-500 font-medium">
-                  Enter your mobile number to login securely.
+                  {step === 'email' 
+                    ? 'Enter your email address to login securely.' 
+                    : `Code sent to ${email}`}
                 </p>
               </div>
+
+              {/* Error Message */}
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm font-medium flex items-center gap-2"
+                >
+                  <span>⚠️</span>
+                  <span>{error}</span>
+                </motion.div>
+              )}
 
               {/* Form Area */}
               <div className="relative min-h-[300px]">
                 <AnimatePresence mode='wait' custom={step === 'otp' ? 1 : -1}>
                   
-                  {/* STEP 1: PHONE NUMBER */}
-                  {step === 'phone' ? (
+                  {/* STEP 1: EMAIL */}
+                  {step === 'email' ? (
                     <motion.form 
-                      key="phone-form"
+                      key="email-form"
                       initial={{ opacity: 0, x: -50 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -50 }}
@@ -184,21 +252,18 @@ const LoginPage = () => {
                     >
                       <div>
                         <label className="block text-sm font-bold text-[#143d28] mb-2 ml-1">
-                          Mobile Number
+                          Email Address
                         </label>
                         <div className="relative group">
                           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <Phone className="h-5 w-5 text-gray-400 group-focus-within:text-[#143d28] transition-colors" />
+                            <Mail className="h-5 w-5 text-gray-400 group-focus-within:text-[#143d28] transition-colors" />
                           </div>
-                          <span className="absolute inset-y-0 left-12 flex items-center text-gray-500 font-bold pointer-events-none pt-1">
-                             +91
-                          </span>
                           <input
-                            type="tel"
-                            value={phoneNumber}
-                            onChange={(e) => setPhoneNumber(e.target.value)}
-                            placeholder="98765 43210"
-                            className="block w-full pl-20 pr-4 py-4 text-lg bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#143d28] focus:border-transparent transition-all outline-none font-bold text-gray-900 placeholder:font-normal"
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="farmer@example.com"
+                            className="block w-full pl-12 pr-4 py-4 text-lg bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#143d28] focus:border-transparent transition-all outline-none font-medium text-gray-900 placeholder:font-normal"
                             required
                           />
                         </div>
@@ -242,7 +307,7 @@ const LoginPage = () => {
                             Enter Verification Code
                             </label>
                             <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded">
-                                SMS Sent
+                                Email Sent
                             </span>
                         </div>
                         <div className="relative group">
@@ -252,15 +317,15 @@ const LoginPage = () => {
                           <input
                             type="text"
                             value={otp}
-                            onChange={(e) => setOtp(e.target.value)}
-                            placeholder="• • • •"
-                            maxLength="4"
+                            onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            placeholder="• • • • • •"
+                            maxLength="6"
                             className="block w-full pl-12 pr-4 py-4 text-2xl tracking-[0.8em] font-black text-center bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#143d28] focus:border-transparent transition-all outline-none text-gray-900"
                             required
                           />
                         </div>
                         <p className="mt-3 text-sm text-center text-gray-500">
-                          Code sent to <span className="font-bold text-gray-900">+91 {phoneNumber}</span>
+                          Code sent to <span className="font-bold text-gray-900">{email}</span>
                         </p>
                       </div>
 
@@ -286,10 +351,10 @@ const LoginPage = () => {
 
                       <button
                         type="button"
-                        onClick={() => setStep('phone')}
+                        onClick={() => { setStep('email'); setError(''); setOtp(''); }}
                         className="w-full text-sm font-bold text-gray-400 hover:text-[#143d28] transition-colors flex items-center justify-center gap-1"
                       >
-                        ← Change Phone Number
+                        ← Change Email Address
                       </button>
                     </motion.form>
                   )}

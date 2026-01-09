@@ -8,6 +8,7 @@ import ResultPage from './pages/ResultPage'
 import HistoryPage from './pages/HistoryPage'
 import ContactPage from './pages/ContactPage'
 import { LanguageProvider } from './contexts/LanguageContext'
+import ProtectedRoute from './components/ProtectedRoute'
 import React from 'react'
 
 // Simple placeholder component for unimplemented pages
@@ -33,10 +34,14 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<LoginPage />} />
-          <Route path="/scan" element={<Scanner />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/result" element={<ResultPage />} />
-          <Route path="/history" element={<HistoryPage />} />
+          
+          {/* Protected Routes - Require Authentication */}
+          <Route path="/scan" element={<ProtectedRoute><Scanner /></ProtectedRoute>} />
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/result" element={<ProtectedRoute><ResultPage /></ProtectedRoute>} />
+          <Route path="/history" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
+          
+          {/* Public Routes */}
           <Route path="/contact" element={<ContactPage />} />
           
           {/* Placeholder routes */}

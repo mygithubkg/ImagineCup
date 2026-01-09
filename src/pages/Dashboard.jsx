@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Sprout } from 'lucide-react';
 
 // Component Imports
 import DashboardHeader from '../components/dashboard/DashboardHeader';
@@ -29,7 +30,9 @@ const Dashboard = () => {
   }, [navigate]);
 
   const handleLogout = () => {
+    // Clear all authentication data
     localStorage.removeItem('user');
+    localStorage.removeItem('authToken');
     navigate('/login');
   };
 
@@ -109,6 +112,41 @@ const Dashboard = () => {
         onToggleLanguage={toggleLanguage}
         onLogout={handleLogout}
       />
+
+      {/* Demo Mode Banner */}
+      {user.type === 'guest' && (
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4"
+        >
+          <div className="bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-2xl p-4 shadow-lg border-2 border-yellow-600/20">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-yellow-600 text-white p-2 rounded-lg">
+                  <Sprout className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-yellow-900">
+                    {language === 'ENG' ? 'Demo Mode Active' : 'डेमो मोड सक्रिय'}
+                  </h3>
+                  <p className="text-sm text-yellow-800">
+                    {language === 'ENG' 
+                      ? 'You\'re exploring LivingHarvest without authentication. Create an account to save your scans!' 
+                      : 'आप बिना प्रमाणीकरण के LivingHarvest का उपयोग कर रहे हैं। अपने स्कैन सहेजने के लिए खाता बनाएं!'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => navigate('/login')}
+                className="hidden sm:flex items-center gap-2 bg-yellow-900 text-yellow-50 px-4 py-2 rounded-lg font-bold text-sm hover:bg-yellow-800 transition-colors whitespace-nowrap"
+              >
+                {language === 'ENG' ? 'Sign Up' : 'साइन अप करें'}
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Main Content Area */}
       <motion.main 

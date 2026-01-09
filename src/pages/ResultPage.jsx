@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft, ShieldAlert, HeartPulse, Info, Store, History, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import React from 'react';
+import { getAnalysisResult } from '../utils/blobStorage';
 
 // Component Imports
 import LoadingScreen from '../components/result/LoadingScreen';
@@ -16,8 +17,12 @@ const ResultPage = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [capturedImage, setCapturedImage] = useState(null);
+  const [resultData, setResultData] = useState(null);
+  const [error, setError] = useState(null);
+  const [pollingStatus, setPollingStatus] = useState('Initializing analysis...');
 
-  const resultData = {
+  // Mock data for when Azure is not configured
+  const mockResultData = {
     disease: 'Tomato Early Blight',
     confidence: 94,
     severity: 'High',
@@ -36,10 +41,81 @@ const ResultPage = () => {
     }
     setCapturedImage(image);
 
-    // Simulate AI "Deep Thinking"
-    const timer = setTimeout(() => setIsLoading(false), 3000);
-    return () => clearTimeout(timer);
+    const filename = localStorage.getItem('analysisFilename');
+    const isMockMode = localStorage.getItem('mockMode') === 'true';
+    
+    if (isMockMode || !filename) {
+      // Use mock data when Azure is not configured
+      console.log('👨 Using mock analysis data');
+      setPollingStatus('Analyzing with AI (Demo Mode)...');
+      const timer = setTimeout(() => {
+        setResultData(mockResultData);
+        setIsLoading(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+    
+    // Poll for Azure analysis results
+    pollForResults(filename);
   }, [navigate]);
+
+  const pollForResults = async (filename) => {
+    const maxAttempts = 60; // 60 seconds max (adjust based on your Azure Function processing time)
+    let attempts = 0;
+
+    const poll = async () => {
+      try {
+        setPollingStatus(`Analyzing image... (${attempts + 1}s)`);
+        
+        const response = await getAnalysisResult(filename);
+        
+        if (response.status === 'complete' && response.data) {
+          // Map Azure response to UI format
+          const azureData = response.data;
+          
+          setResultData({
+            disease: azureData.disease_name || azureData.disease || 'Unknown Disease',
+            confidence: Math.round((azureData.confidence || 0) * 100),
+            severity: azureData.severity || 'Medium',
+            treatment: azureData.recommended_treatment || azureData.treatment || 'Consult expert',
+            dosage: azureData.dosage || 'As recommended',
+            weatherSafe: azureData.weather_safe !== false,
+            weatherInfo: azureData.weather_info || 'Check local weather conditions',
+            audioText: azureData.treatment_audio_text || azureData.audio_text || ''
+          });
+          
+          setIsLoading(false);
+          localStorage.removeItem('analysisFilename');
+          
+          console.log('✅ Analysis complete:', response.data);
+        } else if (response.status === 'processing') {
+          attempts++;
+          if (attempts < maxAttempts) {
+            setTimeout(poll, 1000); // Poll every second
+          } else {
+            setError('Analysis is taking longer than expected. The system may be processing a large queue.');
+            setIsLoading(false);
+          }
+        } else if (response.status === 'error') {
+          setError(response.message || 'Analysis failed. Please try again.');
+          setIsLoading(false);
+        }
+      } catch (err) {
+        console.error('❌ Polling error:', err);
+        attempts++;
+        
+        if (attempts < maxAttempts) {
+          // Retry on network errors
+          setTimeout(poll, 2000);
+        } else {
+          setError('Unable to retrieve analysis results. Please check your connection and try again.');
+          setIsLoading(false);
+        }
+      }
+    };
+
+    poll();
+  };
 
   const handleFindShop = () => {
     const searchQuery = encodeURIComponent(`${resultData.treatment} agricultural store near me`);
@@ -54,7 +130,48 @@ const ResultPage = () => {
     alert('Scan rooted in history!');
   };
 
-  if (isLoading) return <LoadingScreen />;
+  // Show error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#FFFBF0] flex items-center justify-center p-4">
+        <div className="text-center max-w-md">
+          <div className="w-20 h-20 mx-auto mb-6 bg-red-100 rounded-full flex items-center justify-center">
+            <ShieldAlert className="text-red-600" size={40} />
+          </div>
+          <h2 className="text-2xl font-serif font-black text-[#143d28] mb-4">Analysis Unavailable</h2>
+          <p className="text-[#143d28]/60 text-sm mb-8">{error}</p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button
+              onClick={() => {
+                localStorage.removeItem('capturedImage');
+                localStorage.removeItem('analysisFilename');
+                navigate('/scan');
+              }}
+              className="px-6 py-3 bg-[#143d28] text-white rounded-xl font-bold hover:bg-[#143d28]/90 transition-colors"
+            >
+              Try Again
+            </button>
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="px-6 py-3 bg-white text-[#143d28] border-2 border-[#143d28] rounded-xl font-bold hover:bg-[#143d28]/5 transition-colors"
+            >
+              Back to Dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) return <LoadingScreen status={pollingStatus} />;
+
+  if (!resultData) {
+    return (
+      <div className="min-h-screen bg-[#FFFBF0] flex items-center justify-center">
+        <p className="text-[#143d28]">Loading results...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#FFFBF0] pb-44 selection:bg-green-100">

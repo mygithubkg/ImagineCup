@@ -1,8 +1,9 @@
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Trash2, Camera, Calendar } from 'lucide-react';
+import { ArrowLeft, Trash2, Camera, Calendar, Sprout } from 'lucide-react';
 import DashboardHeader from '../components/dashboard/DashboardHeader';
 import React from 'react';
+import { motion } from 'framer-motion';
 const HistoryPage = () => {
   const navigate = useNavigate();
   const [scanHistory, setScanHistory] = useState([]);
@@ -103,6 +104,41 @@ const HistoryPage = () => {
         onToggleLanguage={toggleLanguage}
         onLogout={handleLogout}
       />
+
+      {/* Demo Mode Banner */}
+      {user.type === 'guest' && (
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4"
+        >
+          <div className="bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-2xl p-4 shadow-lg border-2 border-yellow-600/20">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-yellow-600 text-white p-2 rounded-lg">
+                  <Sprout className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-yellow-900">
+                    {language === 'ENG' ? 'Demo Mode - History Not Saved' : 'डेमो मोड - इतिहास सहेजा नहीं गया'}
+                  </h3>
+                  <p className="text-sm text-yellow-800">
+                    {language === 'ENG' 
+                      ? 'Sign up to save your scan history permanently!' 
+                      : 'अपने स्कैन इतिहास को स्थायी रूप से सहेजने के लिए साइन अप करें!'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => navigate('/login')}
+                className="hidden sm:flex items-center gap-2 bg-yellow-900 text-yellow-50 px-4 py-2 rounded-lg font-bold text-sm hover:bg-yellow-800 transition-colors whitespace-nowrap"
+              >
+                {language === 'ENG' ? 'Sign Up' : 'साइन अप करें'}
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Header */}
