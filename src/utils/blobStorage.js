@@ -1,10 +1,12 @@
 import { BlobServiceClient } from '@azure/storage-blob';
 
 // Azure Storage Configuration
-const STORAGE_ACCOUNT = import.meta.env.VITE_AZURE_STORAGE_ACCOUNT;
-const SAS_TOKEN = import.meta.env.VITE_AZURE_SAS_TOKEN;
-const CONTAINER_NAME = 'crop-images'; // Your container name for uploaded images
-const API_URL = import.meta.env.VITE_API_BASE_URL;
+const STORAGE_ACCOUNT = import.meta.env.VITE_AZURE_STORAGE_ACCOUNT || 'agrieyestorage001';
+const SAS_TOKEN = import.meta.env.VITE_AZURE_SAS_TOKEN || 'sv=2024-11-04&ss=bfqt&srt=sco&sp=rwdlacupiytfx&se=2028-01-10T14:18:20Z&st=2026-01-10T06:03:20Z&spr=https,http&sig=SNfCV5opJknCvqMToACXosfgbNLELsXJqP7mhH7nZFo%3D';
+const CONTAINER_NAME = 'crop-images';
+
+// API URL - Will be your deployed Azure Function
+const API_URL = import.meta.env.VITE_API_BASE_URL || 'https://agri-eye-api.azurewebsites.net/api';
 
 /**
  * Uploads an image to Azure Blob Storage
@@ -56,7 +58,7 @@ export async function uploadImageToBlob(imageDataUrl, userId) {
 }
 
 /**
- * Polls Azure Function to get analysis results
+ * Fetches analysis results from Azure Function API
  * @param {string} filename - The filename to check for results
  * @returns {Promise<Object>} Analysis result data
  */
@@ -71,7 +73,8 @@ export async function getAnalysisResult(filename) {
     });
     
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
     }
     
     return await response.json();

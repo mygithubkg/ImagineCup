@@ -9,7 +9,7 @@ const Header = () => (
       <div className="w-8 h-8 bg-green-800 rounded-lg flex items-center justify-center text-white">
         <Sprout size={20} />
       </div>
-      <span className="font-serif text-xl font-bold text-green-900 tracking-tight">LivingHarvest</span>
+      <span className="font-serif text-xl font-bold text-green-900 tracking-tight">Agri-Eye</span>
     </div>
     <div className="hidden md:flex gap-8 text-sm font-medium text-green-800/70">
       <a href="#" className="hover:text-green-900 transition-colors">Our Roots</a>
